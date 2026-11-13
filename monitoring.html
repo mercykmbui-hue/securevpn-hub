@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Monitoring - SecureVPN Hub</title>
+  <link rel="stylesheet" href="css style.css">
+  <script>
+    if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
+      window.location.href = 'login.html';
+    }
+  </script>
+</head>
+<body data-module="monitoring">
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">SecureVPN Hub</div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="vpn.html">VPN Connections</a>
+        <a href="devices.html">Devices</a>
+        <a href="users.html">Users & RBAC</a>
+        <a href="policies.html">Policies</a>
+        <a href="monitoring.html" class="active">Monitoring</a>
+        <a href="modules.html">Modules</a>
+        <a href="reports.html">Reports</a>
+        <a href="audit.html">Audit Logs</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <div class="main-wrapper">
+      <header class="navbar">
+        <span>Server Telemetry & Infrastructure Monitoring</span>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-muted, #64748b);">User: <strong style="color: var(--text-main, #1e293b);">Administrator</strong></span>
+          <button onclick="handleLogout()" 
+                  onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.transform='translateY(-1px)';" 
+                  onmouseout="this.style.background='#fee2e2'; this.style.color='#dc2626'; this.style.transform='translateY(0)';"
+                  style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">Real-Time Infrastructure Telemetry</h1>
+          <button class="btn btn-primary" onclick="loadMonitoringStats()">🔄 Refresh Telemetry</button>
+        </div>
+
+        <!-- Live Server Telemetry Cards -->
+        <div class="stats-grid" style="margin-bottom: 2rem;">
+          <div class="card stat-card">
+            <span class="label">Server Status</span>
+            <span class="value" id="mon-status" style="font-size: 1.25rem; color: var(--success);">-</span>
+          </div>
+          <div class="card stat-card">
+            <span class="label">System Uptime</span>
+            <span class="value" id="mon-uptime">-</span>
+          </div>
+          <div class="card stat-card">
+            <span class="label">Active VPN Tunnels</span>
+            <span class="value" id="mon-tunnels">-</span>
+          </div>
+          <div class="card stat-card">
+            <span class="label">Network Throughput</span>
+            <span class="value" id="mon-throughput" style="color: var(--primary);">-</span>
+          </div>
+        </div>
+
+        <!-- Detailed Resource Utilization -->
+        <div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+          <h2 style="font-size: 1.1rem; margin-bottom: 1.25rem;">Server Resource Utilization</h2>
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500;">
+                <span>CPU Load</span>
+                <span id="mon-cpu-text">0%</span>
+              </div>
+              <div style="background: var(--border-color); height: 10px; border-radius: 5px; overflow: hidden;">
+                <div id="mon-cpu-bar" style="background: var(--primary); width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 500;">
+                <span>Memory Allocation (RAM)</span>
+                <span id="mon-mem-text">0%</span>
+              </div>
+              <div style="background: var(--border-color); height: 10px; border-radius: 5px; overflow: hidden;">
+                <div id="mon-mem-bar" style="background: var(--success); width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.875rem;">
+          Telemetry sync active. Metrics adjust automatically based on live user tunnel connections established on the VPN Connections page.
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    async function loadMonitoringStats() {
+      try {
+        const res = await fetch('http://localhost:3000/api/monitoring/stats');
+        const data = await res.json();
+
+        document.getElementById('mon-status').innerText = data.serverStatus;
+        document.getElementById('mon-uptime').innerText = data.uptime;
+        document.getElementById('mon-tunnels').innerText = data.activeTunnels;
+        document.getElementById('mon-throughput').innerText = data.networkThroughput;
+
+        // Update CPU and RAM progress bars
+        document.getElementById('mon-cpu-text').innerText = data.cpuUsage;
+        document.getElementById('mon-cpu-bar').style.width = data.cpuUsage;
+
+        document.getElementById('mon-mem-text').innerText = data.memoryUsage;
+        document.getElementById('mon-mem-bar').style.width = data.memoryUsage;
+
+      } catch (err) {
+        console.error('Failed to load monitoring stats:', err);
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('isAdminLoggedIn');
+      window.location.href = 'login.html';
+    }
+
+    // Auto-refresh monitoring telemetry every 5 seconds
+    window.onload = () => {
+      loadMonitoringStats();
+      setInterval(loadMonitoringStats, 5000);
+    };
+  </script>
+</body>
+</html>

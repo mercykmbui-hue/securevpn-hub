@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>System Reports - SecureVPN Hub</title>
+  <link rel="stylesheet" href="css style.css">
+  <script>
+    if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
+      window.location.href = 'login.html';
+    }
+  </script>
+</head>
+<body data-module="reports">
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">SecureVPN Hub</div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="vpn.html">VPN Connections</a>
+        <a href="devices.html">Devices</a>
+        <a href="users.html">Users & RBAC</a>
+        <a href="policies.html">Policies</a>
+        <a href="monitoring.html">Monitoring</a>
+        <a href="modules.html">Modules</a>
+        <a href="reports.html" class="active">Reports</a>
+        <a href="audit.html">Audit Logs</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <div class="main-wrapper">
+      <header class="navbar">
+        <span>System Operations & Security Reports</span>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-muted, #64748b);">User: <strong style="color: var(--text-main, #1e293b);">Administrator</strong></span>
+          <button onclick="handleLogout()" 
+                  onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.transform='translateY(-1px)';" 
+                  onmouseout="this.style.background='#fee2e2'; this.style.color='#dc2626'; this.style.transform='translateY(0)';"
+                  style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">Live System Analytics & Compliance Report</h1>
+          <button class="btn btn-primary" onclick="loadReportData()">🔄 Refresh Live Data</button>
+        </div>
+
+        <!-- Metric Summary Cards -->
+        <div class="stats-grid" style="margin-bottom: 2rem;">
+          <div class="card stat-card">
+            <span class="label">Total Enrolled Devices</span>
+            <span class="value" id="rep-total-dev">-</span>
+          </div>
+          <div class="card stat-card">
+            <span class="label">Compliant Endpoints</span>
+            <span class="value" id="rep-comp-dev" style="color: var(--success);">-</span>
+          </div>
+          <div class="card stat-card">
+            <span class="label">Active VPN Tunnels</span>
+            <span class="value" id="rep-tunnels">-</span>
+          </div>
+          <div class="card stat-card">
+            <span class="label">Enforced Policies</span>
+            <span class="value" id="rep-policies">-</span>
+          </div>
+        </div>
+
+        <!-- Department Policy Distribution Table -->
+        <div class="card" style="margin-bottom: 2rem; padding: 1.5rem;">
+          <h2 style="font-size: 1.1rem; margin-bottom: 1rem;">Department Policy Distribution</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Department</th>
+                  <th>Active Policies Enforced</th>
+                </tr>
+              </thead>
+              <tbody id="dept-breakdown-body">
+                <tr><td colspan="2" style="text-align: center; color: var(--text-muted);">Loading department analytics...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recent System Activity Audit Feed -->
+        <div class="card" style="padding: 1.5rem;">
+          <h2 style="font-size: 1.1rem; margin-bottom: 1rem;">Recent Security & Operational Audit Feed</h2>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>User Account</th>
+                  <th>Action Performed</th>
+                  <th>IP Address</th>
+                </tr>
+              </thead>
+              <tbody id="audit-feed-body">
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Loading audit logs...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    async function loadReportData() {
+      try {
+        const res = await fetch('http://localhost:3000/api/reports/summary');
+        const data = await res.json();
+
+        // Populate summary metrics
+        document.getElementById('rep-total-dev').innerText = data.devices.total;
+        document.getElementById('rep-comp-dev').innerText = `${data.devices.compliant} / ${data.devices.total}`;
+        document.getElementById('rep-tunnels').innerText = data.tunnels.active;
+        document.getElementById('rep-policies').innerText = data.policies.total;
+
+        // Populate Department Breakdown Table
+        const deptTbody = document.getElementById('dept-breakdown-body');
+        deptTbody.innerHTML = '';
+        if (data.policies.breakdown.length === 0) {
+          deptTbody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No department policies recorded.</td></tr>`;
+        } else {
+          data.policies.breakdown.forEach(item => {
+            deptTbody.innerHTML += `
+              <tr>
+                <td><strong>${item.target_department}</strong></td>
+                <td><span class="badge badge-success">${item.count} Policy Enforced</span></td>
+              </tr>
+            `;
+          });
+        }
+
+        // Populate Recent Audit Feed
+        const auditTbody = document.getElementById('audit-feed-body');
+        auditTbody.innerHTML = '';
+        if (data.auditSummary.length === 0) {
+          auditTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No audit events recorded yet.</td></tr>`;
+        } else {
+          data.auditSummary.forEach(log => {
+            auditTbody.innerHTML += `
+              <tr>
+                <td><code>${log.timestamp}</code></td>
+                <td><strong>${log.user_account}</strong></td>
+                <td>${log.action_performed}</td>
+                <td><code>${log.ip_address}</code></td>
+              </tr>
+            `;
+          });
+        }
+
+      } catch (err) {
+        console.error('Failed to load report analytics:', err);
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('isAdminLoggedIn');
+      window.location.href = 'login.html';
+    }
+
+    window.onload = loadReportData;
+  </script>
+</body>
+</html>

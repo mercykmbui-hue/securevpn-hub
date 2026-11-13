@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>VPN Connections - SecureVPN Hub</title>
+  <link rel="stylesheet" href="css style.css">
+  <script>
+    if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
+      window.location.href = 'login.html';
+    }
+  </script>
+</head>
+<body data-module="vpn">
+
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">SecureVPN Hub</div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="vpn.html" class="active">VPN Connections</a>
+        <a href="devices.html">Devices</a>
+        <a href="users.html">Users & RBAC</a>
+        <a href="policies.html">Policies</a>
+        <a href="monitoring.html">Monitoring</a>
+        <a href="modules.html">Modules</a>
+        <a href="reports.html">Reports</a>
+        <a href="audit.html">Audit Logs</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <div class="main-wrapper">
+      <header class="navbar">
+        <span>Active VPN Tunnels & Gateways</span>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-muted, #64748b);">User: <strong style="color: var(--text-main, #1e293b);">Administrator</strong></span>
+          <button onclick="handleLogout()" 
+                  onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.transform='translateY(-1px)';" 
+                  onmouseout="this.style.background='#fee2e2'; this.style.color='#dc2626'; this.style.transform='translateY(0)';"
+                  style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">Active Client Tunnels</h1>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-primary" onclick="openModal('tunnelModal')">+ Connect Tunnel</button>
+            <button class="btn" style="background: var(--danger-bg); color: var(--danger);" onclick="triggerKillSwitch()">🚨 Emergency Kill Switch</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Client IP</th>
+                <th>Virtual IP</th>
+                <th>Protocol</th>
+                <th>Data Transferred</th>
+                <th>Duration</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="vpn-table-body">
+              <!-- Dynamically populated live -->
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal to establish a live tunnel -->
+  <div id="tunnelModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+    <div class="modal-content" style="background:var(--bg-surface); padding:1.5rem; border-radius:var(--radius); width:400px;">
+      <h2 style="margin-bottom:1rem; font-size:1.25rem;">Establish Live VPN Tunnel</h2>
+      <form id="tunnelForm" onsubmit="handleTunnelSubmit(event)" style="display:flex; flex-direction:column; gap:0.75rem;">
+        <label style="font-size:0.875rem;">Username</label>
+        <input type="text" id="tunUser" required placeholder="e.g. kelvin_admin" style="padding:0.5rem; border:1px solid var(--border-color); border-radius:var(--radius);">
+
+        <label style="font-size:0.875rem;">Client Public IP</label>
+        <input type="text" id="tunClientIp" required placeholder="e.g. 192.168.1.50" style="padding:0.5rem; border:1px solid var(--border-color); border-radius:var(--radius);">
+
+        <label style="font-size:0.875rem;">Assigned Virtual IP</label>
+        <input type="text" id="tunVirtualIp" required placeholder="e.g. 10.8.0.15" style="padding:0.5rem; border:1px solid var(--border-color); border-radius:var(--radius);">
+
+        <label style="font-size:0.875rem;">Protocol</label>
+        <select id="tunProtocol" style="padding:0.5rem; border:1px solid var(--border-color); border-radius:var(--radius); background:var(--bg-surface);">
+          <option value="WireGuard">WireGuard</option>
+          <option value="OpenVPN">OpenVPN</option>
+          <option value="IKEv2/IPsec">IKEv2/IPsec</option>
+        </select>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+          <button type="button" class="btn" onclick="closeModal('tunnelModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Connect Tunnel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    async function loadVpnConnections() {
+      try {
+        const res = await fetch('http://localhost:3000/api/vpn/connections');
+        const data = await res.json();
+        const tbody = document.getElementById('vpn-table-body');
+        tbody.innerHTML = '';
+
+        if (!data.connections || data.connections.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">No active VPN tunnels. Click "+ Connect Tunnel" to establish a session.</td></tr>`;
+          return;
+        }
+
+        data.connections.forEach(conn => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${conn.username}</strong></td>
+            <td><code>${conn.client_ip}</code></td>
+            <td><code>${conn.assigned_virtual_ip}</code></td>
+            <td><span class="badge badge-success">${conn.protocol}</span></td>
+            <td>${conn.bytes_transferred}</td>
+            <td>${conn.duration}</td>
+            <td>
+              <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; cursor: pointer;" onclick="disconnectTunnel(${conn.id}, '${conn.username}')">Disconnect</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Failed to load VPN tunnels:', err);
+      }
+    }
+
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { 
+      document.getElementById(id).style.display = 'none'; 
+      document.getElementById('tunnelForm').reset();
+    }
+
+    async function handleTunnelSubmit(e) {
+      e.preventDefault();
+      const payload = {
+        username: document.getElementById('tunUser').value,
+        client_ip: document.getElementById('tunClientIp').value,
+        assigned_virtual_ip: document.getElementById('tunVirtualIp').value,
+        protocol: document.getElementById('tunProtocol').value
+      };
+
+      try {
+        const res = await fetch('http://localhost:3000/api/vpn/connections', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+          closeModal('tunnelModal');
+          loadVpnConnections();
+        } else {
+          alert("Error establishing tunnel.");
+        }
+      } catch (err) {
+        alert("Server connection failed.");
+      }
+    }
+
+    async function disconnectTunnel(id, username) {
+      if (confirm(`Are you sure you want to disconnect user "${username}"?`)) {
+        try {
+          await fetch(`http://localhost:3000/api/vpn/connections/${id}`, { method: 'DELETE' });
+          loadVpnConnections();
+        } catch (err) {
+          alert("Failed to disconnect tunnel.");
+        }
+      }
+    }
+
+    async function triggerKillSwitch() {
+      if (confirm("CRITICAL WARNING: Are you sure you want to activate the Emergency Kill Switch? This will instantly terminate all active VPN tunnels.")) {
+        try {
+          await fetch('http://localhost:3000/api/vpn/killswitch', { method: 'POST' });
+          alert("Emergency Kill Switch executed. All tunnels severed.");
+          loadVpnConnections();
+        } catch (err) {
+          alert("Failed to execute kill switch.");
+        }
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('isAdminLoggedIn');
+      window.location.href = 'login.html';
+    }
+
+    window.onload = loadVpnConnections;
+  </script>
+</body>
+</html>

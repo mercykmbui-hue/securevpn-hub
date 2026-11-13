@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Audit Logs - SecureVPN Hub</title>
+  <link rel="stylesheet" href="css style.css">
+  <script>
+    if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
+      window.location.href = 'login.html';
+    }
+  </script>
+</head>
+<body data-module="audit">
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">SecureVPN Hub</div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="vpn.html">VPN Connections</a>
+        <a href="devices.html">Devices</a>
+        <a href="users.html">Users & RBAC</a>
+        <a href="policies.html">Policies</a>
+        <a href="monitoring.html">Monitoring</a>
+        <a href="modules.html">Modules</a>
+        <a href="reports.html">Reports</a>
+        <a href="audit.html" class="active">Audit Logs</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <div class="main-wrapper">
+      <header class="navbar">
+        <span>System Audit Logs & Security Traceability</span>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-muted, #64748b);">User: <strong style="color: var(--text-main, #1e293b);">Administrator</strong></span>
+          <button onclick="handleLogout()" 
+                  onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.transform='translateY(-1px)';" 
+                  onmouseout="this.style.background='#fee2e2'; this.style.color='#dc2626'; this.style.transform='translateY(0)';"
+                  style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">System Audit Logs</h1>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn" onclick="loadAuditLogs()">🔄 Refresh Logs</button>
+            <button class="btn" style="background: var(--danger-bg); color: var(--danger); border: 1px solid #fca5a5;" onclick="clearAuditLogs()">🗑️ Clear Audit Logs</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Timestamp</th>
+                <th>User Account</th>
+                <th>Action Performed</th>
+                <th>IP Address</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body">
+              <tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading audit records...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api/audit';
+
+    async function loadAuditLogs() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        const tbody = document.getElementById('audit-table-body');
+        tbody.innerHTML = '';
+
+        if (!data.audit_logs || data.audit_logs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">No audit logs recorded.</td></tr>`;
+          return;
+        }
+
+        data.audit_logs.forEach(log => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><code>#${log.id}</code></td>
+            <td><code>${log.timestamp}</code></td>
+            <td><strong>${log.user_account}</strong></td>
+            <td>${log.action_performed}</td>
+            <td><code>${log.ip_address}</code></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Failed to load audit logs:', err);
+        document.getElementById('audit-table-body').innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--danger); padding: 2rem;">Error connecting to backend server.</td></tr>`;
+      }
+    }
+
+    async function clearAuditLogs() {
+      if (confirm("CRITICAL WARNING: Are you sure you want to clear all audit logs? This action will wipe history and leave a reset record.")) {
+        try {
+          const res = await fetch(API_URL, { method: 'DELETE' });
+          const data = await res.json();
+          if (data.success) {
+            loadAuditLogs();
+          } else {
+            alert("Failed to clear audit logs.");
+          }
+        } catch (err) {
+          alert("Server connection failed.");
+        }
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('isAdminLoggedIn');
+      window.location.href = 'login.html';
+    }
+
+    window.onload = loadAuditLogs;
+  </script>
+</body>
+</html>

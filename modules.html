@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Modules - SecureVPN Hub</title>
+  <link rel="stylesheet" href="css style.css">
+  <script>
+    if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
+      window.location.href = 'login.html';
+    }
+  </script>
+</head>
+<body data-module="modules">
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">SecureVPN Hub</div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="vpn.html">VPN Connections</a>
+        <a href="devices.html">Devices</a>
+        <a href="users.html">Users & RBAC</a>
+        <a href="policies.html">Policies</a>
+        <a href="monitoring.html">Monitoring</a>
+        <a href="modules.html" class="active">Modules</a>
+        <a href="reports.html">Reports</a>
+        <a href="audit.html">Audit Logs</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <div class="main-wrapper">
+      <header class="navbar">
+        <span>Enterprise Security Modules & Feature Toggles</span>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-muted, #64748b);">User: <strong style="color: var(--text-main, #1e293b);">Administrator</strong></span>
+          <button onclick="handleLogout()" 
+                  onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.transform='translateY(-1px)';" 
+                  onmouseout="this.style.background='#fee2e2'; this.style.color='#dc2626'; this.style.transform='translateY(0)';"
+                  style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">Active Security Subsystems</h1>
+          <button class="btn btn-primary" onclick="loadModules()">🔄 Refresh Modules</button>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Module Name</th>
+                <th>Subsystem Description</th>
+                <th>Status</th>
+                <th>Action Toggle</th>
+              </tr>
+            </thead>
+            <tbody id="modules-table-body">
+              <tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading security modules...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api/modules';
+
+    async function loadModules() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        const tbody = document.getElementById('modules-table-body');
+        tbody.innerHTML = '';
+
+        if (!data.modules || data.modules.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">No modules configured.</td></tr>`;
+          return;
+        }
+
+        data.modules.forEach(m => {
+          const isEnabled = m.status === 'Enabled';
+          const badgeClass = isEnabled ? 'badge-success' : '';
+          const badgeStyle = isEnabled ? '' : 'background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;';
+          const btnText = isEnabled ? 'Disable Module' : 'Enable Module';
+          const btnStyle = isEnabled ? 'background: var(--danger-bg); color: var(--danger);' : 'background: #dcfce7; color: #16a34a;';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${m.module_name}</strong></td>
+            <td>${m.description}</td>
+            <td><span class="badge ${badgeClass}" style="${badgeStyle}">${m.status}</span></td>
+            <td>
+              <button class="btn" style="padding: 0.3rem 0.7rem; font-size: 0.75rem; font-weight: 600; cursor: pointer; ${btnStyle}" onclick="toggleModule(${m.id})">
+                ${btnText}
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Failed to load modules:', err);
+        document.getElementById('modules-table-body').innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--danger); padding: 2rem;">Error connecting to backend server.</td></tr>`;
+      }
+    }
+
+    async function toggleModule(id) {
+      try {
+        const res = await fetch(`${API_URL}/${id}/toggle`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          loadModules();
+        } else {
+          alert("Failed to update module state.");
+        }
+      } catch (err) {
+        alert("Server connection failed.");
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('isAdminLoggedIn');
+      window.location.href = 'login.html';
+    }
+
+    window.onload = loadModules;
+  </script>
+</body>
+</html>

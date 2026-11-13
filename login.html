@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login - SecureVPN Hub</title>
+  <link rel="stylesheet" href="css style.css">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; height: 100vh; background: var(--bg-main, #f8fafc);">
+
+  <div class="card" style="width: 100%; max-width: 400px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-main, #1e293b);">SecureVPN Hub</h2>
+      <p style="font-size: 0.875rem; color: var(--text-muted, #64748b);">Administrator Portal Access</p>
+    </div>
+
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.35rem;">Admin Username</label>
+          <input type="text" id="username" required placeholder="e.g. admin" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: var(--radius, 6px); outline: none;">
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.35rem;">Password</label>
+          <input type="password" id="password" required placeholder="••••••••" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: var(--radius, 6px); outline: none;">
+        </div>
+
+        <div id="errorMsg" style="color: var(--danger, #ef4444); font-size: 0.8125rem; display: none;"></div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem; margin-top: 0.5rem; justify-content: center;">Authenticate & Login</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    async function handleLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('errorMsg');
+
+      try {
+        const res = await fetch('http://localhost:3000/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          localStorage.setItem('isAdminLoggedIn', 'true');
+          window.location.href = 'dashboard.html';
+        } else {
+          errorMsg.style.display = 'block';
+          errorMsg.textContent = data.message || 'Invalid credentials.';
+        }
+      } catch (err) {
+        errorMsg.style.display = 'block';
+        errorMsg.textContent = 'Server connection error. Is node server.js running?';
+      }
+    }
+  </script>
+</body>
+</html>

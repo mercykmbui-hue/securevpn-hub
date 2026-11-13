@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - SecureVPN Hub</title>
+  <link rel="stylesheet" href="css style.css">
+  <script>
+    if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
+      window.location.href = 'login.html';
+    }
+  </script>
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">SecureVPN Hub</div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="active">Dashboard</a>
+        <a href="vpn.html">VPN Connections</a>
+        <a href="devices.html">Devices</a>
+        <a href="users.html">Users & RBAC</a>
+        <a href="policies.html">Policies</a>
+        <a href="monitoring.html">Monitoring</a>
+        <a href="modules.html">Modules</a>
+        <a href="reports.html">Reports</a>
+        <a href="audit.html">Audit Logs</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+
+    <div class="main-wrapper">
+      <header class="navbar">
+        <span>Admin Panel (Database Connected)</span>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-muted, #64748b);">User: <strong style="color: var(--text-main, #1e293b);">Administrator</strong></span>
+          <button onclick="handleLogout()" 
+                  onmouseover="this.style.background='#dc2626'; this.style.color='#ffffff'; this.style.transform='translateY(-1px)';" 
+                  onmouseout="this.style.background='#fee2e2'; this.style.color='#dc2626'; this.style.transform='translateY(0)';"
+                  style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">Dashboard Overview</h1>
+          <button class="btn btn-primary" onclick="loadDashboardData()">Refresh Data</button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="card stat-card">
+            <span class="label">Total Connected Devices</span>
+            <span class="value" id="stat-devices">-</span>
+          </div>
+          <div class="card stat-card">
+            <span class="label">Active VPN Tunnels</span>
+            <span class="value" id="stat-tunnels">-</span>
+          </div>
+          <div class="card stat-card">
+            <span class="label">System Status</span>
+            <span class="value" id="stat-status" style="color: var(--success);">-</span>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Device ID / Name</th>
+                <th>User</th>
+                <th>MAC Address</th>
+                <th>Compliance Status</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-device-rows"></tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    async function loadDashboardData() {
+      try {
+        const statsRes = await fetch('http://localhost:3000/api/dashboard/stats');
+        const stats = await statsRes.json();
+        document.getElementById('stat-devices').innerText = stats.totalConnectedDevices;
+        document.getElementById('stat-tunnels').innerText = stats.activeTunnels;
+        document.getElementById('stat-status').innerText = stats.systemStatus;
+
+        const devRes = await fetch('http://localhost:3000/api/devices');
+        const devData = await devRes.json();
+        const tbody = document.getElementById('dashboard-device-rows');
+        tbody.innerHTML = '';
+
+        if (!devData.devices || devData.devices.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 1rem;">No devices found.</td></tr>`;
+          return;
+        }
+
+        devData.devices.forEach(dev => {
+          const isCompliant = dev.compliance && dev.compliance.includes('Compliant') && !dev.compliance.includes('Non');
+          const badgeClass = isCompliant ? 'badge-success' : 'badge-danger';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${dev.device_name}</strong></td>
+            <td>${dev.assigned_user}</td>
+            <td>${dev.mac_address}</td>
+            <td><span class="badge ${badgeClass}">${dev.compliance}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('isAdminLoggedIn');
+      window.location.href = 'login.html';
+    }
+
+    window.onload = loadDashboardData;
+  </script>
+</body>
+</html>
